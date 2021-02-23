@@ -40,6 +40,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class DockablePane extends Control implements Dockable {
 
+    // DockModel has addGroup, removeGroup,
+
+    // todo SplitPane factory (and TabFactory?)
     private ObjectProperty<Builder<TabPane>> tabPaneFactory = null;
     private ObjectProperty<Callback<Tab, ContextMenu>> contextMenuFactory = null;
 
@@ -93,15 +96,27 @@ public class DockablePane extends Control implements Dockable {
     }
 
     @Override
-    public void removeOthers(@NotNull Tab tab) {
+    public void removeAllOtherTabsInGroup(@NotNull Tab tab) {
         final DockableSkin skin = (DockableSkin) getSkin();
-        skin.removeOthers(tab);
+        skin.removeAllOtherTabsInGroup(tab);
     }
 
     @Override
     public void removeGroup(@NotNull Tab tab) {
         final DockableSkin skin = (DockableSkin) getSkin();
         skin.removeGroup(tab);
+    }
+
+    @Override
+    public void removeAllOtherGroups(@NotNull Tab tab) {
+        final DockableSkin skin = (DockableSkin) getSkin();
+        skin.removeAllOtherGroups(tab);
+    }
+
+    @Override
+    public void removeAll() {
+        final DockableSkin skin = (DockableSkin) getSkin();
+        skin.removeAll();
     }
 
     @Override

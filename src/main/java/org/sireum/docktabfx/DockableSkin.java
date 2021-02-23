@@ -28,6 +28,7 @@ package org.sireum.docktabfx;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.css.Styleable;
 import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -35,56 +36,58 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.PickResult;
-import javafx.scene.layout.StackPane;
 import javafx.util.Builder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 // todo: probably make this public, even if users should not use it? if public, then ".getSkin()" can be casted
 //       to DockableSkin in case users need to handle specific case. But this is meaningless if fields aren't made
 //       public properties
-class DockableSkin implements Skin<DockablePane>, Dockable {
+public class DockableSkin implements Skin<DockablePane>, Dockable {
 
-    private StackPane rootNode = new StackPane(); // only changes once -- to become null on dispose
-
-    // todo make non final property with null initializer
+    // todo make non final property with null initializer. make @nullable?
     // todo idea: should this (and all components) be made available
     private final SimpleObjectProperty<Tab> targetTab = new SimpleObjectProperty<>();
 
-    // todo make public property, add factory
-    private final SplitPane rootSplitPane = new SplitPane();
+    // todo make public property, add factory?
+    @Nullable
+    private SplitPane rootSplitPane = new SplitPane();
 
-    // todo idea: make public property
+    @Nullable
     private TabPane rootTabPane;
 
-    DockableSkin() {
-        rootNode.getChildren().addAll(rootSplitPane);
-    }
-
     private void initRootTabPaneIfEmpty() {
-        if (rootTabPane == null) {
+        if (rootSplitPane != null && rootTabPane == null) {
             rootTabPane = createTabPane();
             rootSplitPane.getItems().add(rootTabPane);
         }
     }
 
+    @Nullable
     @Override
     public DockablePane getSkinnable() {
-        return (DockablePane) getNode().getStyleableParent();
+        // getNode() returns null iff dispose() has been called
+        final Styleable styleableParent = Optional.ofNullable(getNode())
+                .map(Node::getStyleableParent)
+                .orElse(null);
+        return (DockablePane) styleableParent;
     }
 
     @Override
     public Node getNode() {
-        return rootNode;
+        return rootSplitPane; // returns null iff dispose() has been called
     }
 
     @Override
     public void dispose() {
-        rootNode = null; // see getNode()'s superclass javadoc for why dispose makes rootNode null
+        // after calling dispose(), getNode() and getSkinnable() should return null (as per javafx rules)
+        rootTabPane = null;
+        rootSplitPane = null;
     }
 
     @NotNull
@@ -92,29 +95,43 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
     public Tab addTab(@NotNull String name, @NotNull Node content) {
         initRootTabPaneIfEmpty();
 
-        final Label label = new Label(name);
-        final Tab tab = new Tab();
+        final Label label = new Label(name); // todo tabLabelFactory here? or just let them edit
+        final Tab tab = new Tab(); // todo use factory here? or just let them edit afterwards
 
         label.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> targetTab.set(tab));
 
         tab.setGraphic(label);
         tab.setContent(content);
 
-        final ContextMenu contextMenu = mapOrFallback(getSkinnable().getContextMenuFactory(), it -> it.call(tab),
+        final ContextMenu contextMenu = mapOrFallback(getSkinnable(),
+                DockablePane::getContextMenuFactory,
+                it -> it.call(tab),
                 () -> createDefaultContextMenu(tab));
 
         tab.setContextMenu(contextMenu);
-        rootTabPane.getTabs().add(tab); // tabs are always added to the first tabPane
+        if (rootTabPane != null) { // check if disposed
+            rootTabPane.getTabs().add(tab); // tabs are always added to the first tabPane
+        }
         return tab;
     }
 
+    // whenever an existing tab spawns with a new pane, the reference to that pane exists until the tab is closed
+    // also the last closed tab is tracked by JavaFx
+    // so we may need to recreate th tab when we move it?
+    // but javafx might drop this for us later anyways:
+    // https://stackoverflow.com/questions/31928294/closing-javafx-tabs-doesnt-release-memory-from-arraylists-and-tableviews-in-tha
+
     @Override
     public void removeTab(@NotNull Tab tab) {
-        removeRecursive(tab, rootSplitPane);
+        final TabPane tabPane = tab.getTabPane();
+        if (tabPane != null) {
+            tabPane.getTabs().remove(tab);
+            closeTabPaneIfEmpty(tabPane);
+        }
     }
 
     @Override
-    public void removeOthers(@NotNull Tab tab) {
+    public void removeAllOtherTabsInGroup(@NotNull Tab tab) {
         final TabPane tabPane = tab.getTabPane();
         if (tabPane != null) {
             final ObservableList<Tab> tabs = tabPane.getTabs();
@@ -134,40 +151,46 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
     public void removeGroup(@NotNull Tab tab) {
         final TabPane tabPane = tab.getTabPane();
         if (tabPane != null) {
-            final ObservableList<Tab> tabs = tabPane.getTabs();
-            // using while loop because collection removal is indirectly called by removeTab
-            while (!tabs.isEmpty()) {
-                removeTab(tabs.get(0));
+            tabPane.getTabs().clear();
+            closeTabPaneIfEmpty(tabPane);
+        }
+    }
+
+    @Override
+    public void removeAllOtherGroups(@NotNull Tab tab) {
+        final TabPane tabPane = tab.getTabPane();
+        if (tabPane != null) {
+            // remove this tab pane from its parent
+            final SplitPane parent = findMostDirectContainer(tabPane);
+            if (parent != null) {
+                parent.getItems().remove(tabPane);
+            }
+            // remove all other nodes from the hierarchy
+            if (rootSplitPane != null) { // if not disposed
+                rootSplitPane.getItems().clear();
+                rootSplitPane.getItems().add(tabPane); //https://stackoverflow.com/questions/31928294/closing-javafx-tabs-doesnt-release-memory-from-arraylists-and-tableviews-in-thab
             }
         }
     }
 
-    private static boolean removeRecursive(@NotNull Tab tab, SplitPane container) {
+    @Override
+    public void removeAll() {
+        if (rootSplitPane != null) { // if not disposed
+            rootSplitPane.getItems().clear();
+        }
+    }
+
+    // removes empty TabPanes contained in SplitPanes... but what if users hold an outside ref?
+    private void clean(@NotNull SplitPane container) {
         // container's children are SplitPane or TabPane
         // children that are SplitPane also guarantee this contract
         for (Node node : container.getItems()) {
             if (node instanceof TabPane) {
-                final ObservableList<Tab> tabs = ((TabPane) node).getTabs();
-
-                // check if tab exists at this level
-                for (Tab potentialTab : tabs) {
-                    if (tab == potentialTab) {
-                        tabs.remove(tab);
-                        return true;
-                    }
-                }
+                closeTabPaneIfEmpty((TabPane) node);
             } else if (node instanceof SplitPane) {
-                // check recursively if tab holds SplitPane
-                final SplitPane splitPane = (SplitPane) node;
-                final boolean success = removeRecursive(tab, splitPane);
-
-                if (success) {
-                    return true; // return true iff successful, otherwise loop the rest at this depth
-                }
+                clean((SplitPane) node);
             }
         }
-
-        return false;
     }
 
     @Nullable
@@ -195,11 +218,16 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
         return null;
     }
 
+    @Nullable
     private SplitPane findMostDirectContainer(Node child) {
-        return findMostDirectContainer(rootSplitPane, child);
+        if (rootSplitPane != null) { // check if disposed
+            return findMostDirectContainer(rootSplitPane, child);
+        }
+        return null;
     }
 
     // inner recursive impl
+    @Nullable
     private static SplitPane findMostDirectContainer(SplitPane splitPane, Node child) {
         for (Node node : splitPane.getItems()) {
             if (node == child) { // implicitly means node must also be instance of TabPane
@@ -226,6 +254,7 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
         if (tabPane != null && tabPane.getTabs().size() > 1) {
             final SplitPane parent = findMostDirectContainer(tabPane);
             if (parent != null) {
+                clean(parent);
                 // if 1 item, just add tabPane directly
                 final TabPane newTabPane;
                 if (parent.getItems().size() < 2) {
@@ -275,7 +304,8 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
     }
 
     private TabPane createTabPane() {
-        final TabPane tabPane = mapOrFallback(getSkinnable().getTabPaneFactory(), Builder::build, this::createDefaultTabPane);
+        final TabPane tabPane = mapOrFallback(getSkinnable(), DockablePane::getTabPaneFactory,
+                Builder::build, this::createDefaultTabPane);
 
         tabPane.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
             if (targetTab.get() != null) {
@@ -294,9 +324,9 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
                     event.consume();
                     tabPane.getTabs().remove(tab);
                     targetTabPane.getTabs().add(tab);
+                    System.out.println("HERE!");
                     closeTabPaneIfEmpty(tabPane);
                 }
-
                 targetTab.set(null);
             }
         });
@@ -307,11 +337,20 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
     }
 
     @NotNull
-    private static <T,R> R mapOrFallback(@Nullable T initial, Function<T, @Nullable R> map, Supplier<R> fallback) {
+    private static <T,R> R mapOrFallback(@Nullable T initial, Function<T, @Nullable R> map, @NotNull Supplier<R> fallback) {
         if (initial == null) {
             return fallback.get();
         } else {
             return Objects.requireNonNullElseGet(map.apply(initial), fallback);
+        }
+    }
+
+    @NotNull
+    private static <T,U,R> R mapOrFallback(@Nullable T initial, Function<T, @Nullable U> map1, Function<U, @Nullable R> map2, @NotNull Supplier<R> fallback) {
+        if (initial == null) {
+            return fallback.get();
+        } else {
+            return mapOrFallback(map1.apply(initial), map2, fallback);
         }
     }
 
@@ -323,21 +362,23 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
 
                 // if the closing tabPane was the root then set rootTabPane to another tabPane
                 // (or null if no other tabPane exists)
-                if (tabPane == rootTabPane) {
+                if (rootSplitPane != null && tabPane == rootTabPane) {
                     rootTabPane = findUppermostTabPane(rootSplitPane);
                 }
             }
         }
     }
 
-    // thread-safe lazy loader of vertical image
+    // thread-safe lazy loader of "split vertical" menuitem image
     private static final class VerticalSplitImageLazyLoader {
-        static final Image INSTANCE = new Image(DockableSkin.class.getResource("vertical-split.png").toExternalForm());
+        private static final Image INSTANCE =
+                new Image(DockableSkin.class.getResource("vertical-split.png").toExternalForm());
     }
 
-    // thread-safe lazy loader of horizontal image
+    // thread-safe lazy loader of "split horizontal" menuitem image
     private static final class HorizontalSplitImageLazyLoader {
-        static final Image INSTANCE = new Image(DockableSkin.class.getResource("horizontal-split.png").toExternalForm());
+        private static final Image INSTANCE =
+                new Image(DockableSkin.class.getResource("horizontal-split.png").toExternalForm());
     }
 
     private TabPane createDefaultTabPane() {
@@ -352,7 +393,7 @@ class DockableSkin implements Skin<DockablePane>, Dockable {
         closeMenuItem.setOnAction(event -> removeTab(tab));
 
         final MenuItem closeOthersMenuItem = new MenuItem("Close Others");
-        closeOthersMenuItem.setOnAction(event -> removeOthers(tab));
+        closeOthersMenuItem.setOnAction(event -> removeAllOtherTabsInGroup(tab));
 
         final MenuItem closeGroupMenuItem = new MenuItem("Close Group");
         closeGroupMenuItem.setOnAction(event -> removeGroup(tab));

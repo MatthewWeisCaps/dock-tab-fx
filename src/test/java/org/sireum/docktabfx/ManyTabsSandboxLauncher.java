@@ -25,25 +25,15 @@
 
 package org.sireum.docktabfx;
 
-import javafx.geometry.Orientation;
-import javafx.scene.Node;
-import javafx.scene.control.Tab;
-import org.jetbrains.annotations.NotNull;
+import javafx.application.Application;
 
-interface Dockable {
-
-    @NotNull
-    Tab addTab(@NotNull String text, @NotNull Node content);
-
-    void removeTab(@NotNull Tab tab);
-    void splitTab(@NotNull Tab tab, @NotNull Orientation orientation);
-
-    void removeAllOtherTabsInGroup(@NotNull Tab tab);
-
-    void removeGroup(@NotNull Tab tab);
-
-    void removeAllOtherGroups(@NotNull Tab tab);
-    void removeAll();
-
-
+/**
+ * Starts the {@link ManyTabsSandbox} javafx testbed application.
+ * <br>
+ * This runner is separate from the {@link ManyTabsSandbox} due to unintuitive behavior of the JPMS (jigsaw).
+ */
+public class ManyTabsSandboxLauncher {
+    public static void main(String[] args) {
+        Application.launch(ManyTabsSandbox.class);
+    }
 }
