@@ -6,7 +6,7 @@
 
     <groupId>org.sireum</groupId>
     <artifactId>dock-tab-fx</artifactId>
-    <version>1.1-beta-SNAPSHOT</version>
+    <version>1.1.0</version>
 
     <properties>
         <maven.compiler.target>11</maven.compiler.target>
