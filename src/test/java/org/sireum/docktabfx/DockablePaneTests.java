@@ -117,7 +117,6 @@ public class DockablePaneTests {
     void split_vertical_tab1_test(FxRobot robot) {
         final TabPane oldTabPane = getInitialTabPane();
 
-        // split tab 1
         clickTabMenuItem(robot, scene, tab1, SPLIT_VERTICALLY_MENU_ITEM);
         assertFalse(oldTabPane.getTabs().contains(tab1));
         assertTrue(oldTabPane.getTabs().contains(tab2));
@@ -133,7 +132,6 @@ public class DockablePaneTests {
     void split_vertical_tab2_test(FxRobot robot) {
         final TabPane oldTabPane = getInitialTabPane();
 
-        // split tab 2
         clickTabMenuItem(robot, scene, tab2, SPLIT_VERTICALLY_MENU_ITEM);
         assertTrue(oldTabPane.getTabs().contains(tab1));
         assertFalse(oldTabPane.getTabs().contains(tab2));
@@ -149,7 +147,6 @@ public class DockablePaneTests {
     void split_vertical_tab3_test(FxRobot robot) {
         final TabPane oldTabPane = getInitialTabPane();
 
-        // split tab 3
         clickTabMenuItem(robot, scene, tab3, SPLIT_VERTICALLY_MENU_ITEM);
         assertTrue(oldTabPane.getTabs().contains(tab1));
         assertTrue(oldTabPane.getTabs().contains(tab2));
@@ -165,7 +162,6 @@ public class DockablePaneTests {
     void split_horizontal_tab1_test(FxRobot robot) {
         final TabPane oldTabPane = getInitialTabPane();
 
-        // split tab 1
         clickTabMenuItem(robot, scene, tab1, SPLIT_HORIZONTALLY_MENU_ITEM);
         assertFalse(oldTabPane.getTabs().contains(tab1));
         assertTrue(oldTabPane.getTabs().contains(tab2));
@@ -181,7 +177,6 @@ public class DockablePaneTests {
     void split_horizontal_tab2_test(FxRobot robot) {
         final TabPane oldTabPane = getInitialTabPane();
 
-        // split tab 2
         clickTabMenuItem(robot, scene, tab2, SPLIT_HORIZONTALLY_MENU_ITEM);
         assertTrue(oldTabPane.getTabs().contains(tab1));
         assertFalse(oldTabPane.getTabs().contains(tab2));
@@ -197,7 +192,6 @@ public class DockablePaneTests {
     void split_horizontal_tab3_test(FxRobot robot) {
         final TabPane oldTabPane = getInitialTabPane();
 
-        // split tab 3
         clickTabMenuItem(robot, scene, tab3, SPLIT_HORIZONTALLY_MENU_ITEM);
         assertTrue(oldTabPane.getTabs().contains(tab1));
         assertTrue(oldTabPane.getTabs().contains(tab2));
@@ -215,7 +209,6 @@ public class DockablePaneTests {
 
         split_vertical_tab1_test(robot);
 
-        // split tab 1
         clickTabMenuItem(robot, scene, tab2, SPLIT_VERTICALLY_MENU_ITEM);
         assertFalse(oldTabPane.getTabs().contains(tab1));
         assertFalse(oldTabPane.getTabs().contains(tab2));
@@ -237,7 +230,6 @@ public class DockablePaneTests {
 
         split_horizontal_tab1_test(robot);
 
-        // split tab 1
         clickTabMenuItem(robot, scene, tab2, SPLIT_HORIZONTALLY_MENU_ITEM);
         assertFalse(oldTabPane.getTabs().contains(tab1));
         assertFalse(oldTabPane.getTabs().contains(tab2));
@@ -259,7 +251,6 @@ public class DockablePaneTests {
 
         split_vertical_tab1_test(robot);
 
-        // split tab 1
         clickTabMenuItem(robot, scene, tab2, SPLIT_HORIZONTALLY_MENU_ITEM);
         assertFalse(oldTabPane.getTabs().contains(tab1));
         assertFalse(oldTabPane.getTabs().contains(tab2));
@@ -281,7 +272,6 @@ public class DockablePaneTests {
 
         split_horizontal_tab1_test(robot);
 
-        // split tab 1
         clickTabMenuItem(robot, scene, tab2, SPLIT_VERTICALLY_MENU_ITEM);
         assertFalse(oldTabPane.getTabs().contains(tab1));
         assertFalse(oldTabPane.getTabs().contains(tab2));
